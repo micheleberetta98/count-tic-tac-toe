@@ -32,12 +32,17 @@ isFull :: Board -> Bool
 isFull = all (notElem Nothing)
 
 isWin :: Board -> Bool
-isWin board = any (any allSame) [diags board, board, transpose board]
+isWin board = allSame (diags board) || allSame board || allSame (transpose board)
+
+diags :: Board -> [Row]
+diags [[a,_,a'], [_,b,_], [c',_,c]] = [[a,b,c], [a',b,c']]
+diags _                             = []
+
+allSame :: Board -> Bool
+allSame = any allSame'
   where
-    allSame [a,b,c] = isJust a && a == b && b == c
-    allSame _       = False
-    diags [[a,_,a'], [_,b,_], [c',_,c]] = [[a,b,c], [a',b,c']]
-    diags _                             = []
+    allSame' [a,b,c] = isJust a && a == b && b == c
+    allSame' _       = False
 
 next :: Player -> Player
 next X = O
