@@ -1,28 +1,32 @@
 module Main where
 
-import           Data.List  (transpose)
-import           Data.Maybe (isJust, isNothing)
+import           Control.Monad (guard)
+import           Data.List     (transpose)
+import           Data.Maybe    (isJust, isNothing)
 
 type Board = [Row]
 type Row   = [Maybe Player]
 
 data Player = X | O
-  deriving (Eq)
+  deriving (Show, Eq)
+
+rows, cols :: Int
+rows = 3
+cols = 3
 
 main :: IO ()
 main = do
-  let emptyBoard = replicate 3 (replicate 3 Nothing)
+  let emptyBoard = replicate rows (replicate cols Nothing)
       count = length (allPlays X emptyBoard)
   putStr "All possible (valid) games: " >> print count
   putStr "Expected:                   " >> print 255168
 
 allPlays :: Player -> Board -> [Board]
 allPlays player board = do
-  spot <- freeSpots board
-  let board' = move player spot board
+  board' <- moves player board
   if isFull board' || isWin board'
     then pure board'
-    else allPlays (nextPlayer player) board'
+    else allPlays (next player) board'
 
 isFull :: Board -> Bool
 isFull = all (notElem Nothing)
@@ -35,17 +39,22 @@ isWin board = any (any allSame) [diags board, board, transpose board]
     diags [[a,_,a'], [_,b,_], [c',_,c]] = [[a,b,c], [a',b,c']]
     diags _                             = []
 
-move :: Player -> (Int, Int) -> Board -> Board
-move player (x, y) = update x $ update y (const $ Just player)
+next :: Player -> Player
+next X = O
+next O = X
 
-nextPlayer :: Player -> Player
-nextPlayer X = O
-nextPlayer O = X
+moves :: Player -> Board -> [Board]
+moves p board = chunk . set p board' <$> freeSpots board'
+  where
+    board' = concat board
+    set _ [] _     = []
+    set v (_:xs) 0 = Just v : xs
+    set v (x:xs) n = x : set v xs (n-1)
 
-freeSpots :: Board -> [(Int, Int)]
-freeSpots board = filter isFree ((,) <$> [0..2] <*> [0..2])
-  where isFree (i, j) = isNothing (board !! i !! j)
+freeSpots :: [Maybe Player] -> [Int]
+freeSpots = map fst . filter (isNothing . snd) . zip [0..]
 
-update :: Int -> (a -> a) -> [a] -> [a]
-update i f = zipWith update [0..]
-  where update j x = if i == j then f x else x
+chunk :: [a] -> [[a]]
+chunk [] = []
+chunk xs = y : chunk rest
+  where (y, rest) = splitAt cols xs
